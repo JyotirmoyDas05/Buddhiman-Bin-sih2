@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import Svg, { Rect, Text as SvgText } from 'react-native-svg';
 import { WebView } from 'react-native-webview';
 
 const { width, height } = Dimensions.get('window');
@@ -20,9 +21,64 @@ export default function LiveScanner() {
   const [modelStatus, setModelStatus] = useState<string>('Loading...');
   const [webViewReady, setWebViewReady] = useState(false);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [boundingBoxes, setBoundingBoxes] = useState<any[]>([]);
   const cameraRef = useRef<CameraView>(null);
   const webViewRef = useRef<WebView>(null);
   const scanningRef = useRef<NodeJS.Timeout | null>(null);
+
+// Add this interface near the top of your file
+interface BoundingBoxProps {
+  box: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  } | number[];
+  label: string;
+  confidence: number;
+  color?: string;
+}
+
+// Replace your BoundingBox component with this properly typed version:
+const BoundingBox: React.FC<BoundingBoxProps> = ({ box, label, confidence, color = '#ff0000' }) => {
+  const boxWidth = Array.isArray(box) ? (box[2] - box[0]) : (box.width || 0);
+  const boxHeight = Array.isArray(box) ? (box[3] - box[1]) : (box.height || 0);
+  const x = Array.isArray(box) ? box[0] : (box.x || 0);
+  const y = Array.isArray(box) ? box[1] : (box.y || 0);
+
+  return (
+    <>
+      <Rect
+        x={x}
+        y={y}
+        width={boxWidth}
+        height={boxHeight}
+        stroke={color}
+        strokeWidth={3}
+        fill="transparent"
+        strokeDasharray="10,5"
+      />
+      <Rect
+        x={x}
+        y={y - 25}
+        width={Math.max(label.length * 8, 100)}
+        height={25}
+        fill={color}
+        fillOpacity={0.8}
+      />
+      <SvgText
+        x={x + 5}
+        y={y - 8}
+        fill="white"
+        fontSize={12}
+        fontWeight="bold"
+      >
+        {`${label} ${(confidence * 100).toFixed(0)}%`}
+      </SvgText>
+    </>
+  );
+};
+
 
   const consoleRedirectScript = `
     (function() {
@@ -81,8 +137,8 @@ export default function LiveScanner() {
         
         <script>
             let session = null;
-            // 🔥 FIXED: Your exact class names from Keras training
             const classNames = ['biodegradable', 'non_biodegradable', 'toxic'];
+            const classColors = ['#00ff00', '#ff6600', '#ff0000']; // Green, Orange, Red
             
             function updateStatus(message) {
                 try {
@@ -108,9 +164,7 @@ export default function LiveScanner() {
                 }
             }
 
-            // No need for softmax - Keras model already includes it
             function normalizeOutput(predictions) {
-                // Just ensure they sum to 1 (they should already from Keras softmax)
                 const sum = predictions.reduce((a, b) => a + b, 0);
                 return sum > 0 ? predictions.map(p => p / sum) : predictions;
             }
@@ -120,7 +174,6 @@ export default function LiveScanner() {
                     updateStatus('Loading Keras ONNX model...');
                     log('🚀 Starting Keras model initialization');
                     
-                    // 🔥 FIXED: Use your Keras model instead
                     const modelUrl = 'https://raw.githubusercontent.com/BhairabMahanta/sih2/master/assets/models/waste_classifier.onnx';
                     
                     log('📥 Downloading Keras model from: ' + modelUrl);
@@ -187,24 +240,19 @@ export default function LiveScanner() {
                                 const imageData = ctx.getImageData(0, 0, 224, 224);
                                 const data = imageData.data;
                                 
-                                // 🔥 FIXED: Keras/TensorFlow preprocessing (simpler than PyTorch)
-                                // Keras ImageDataGenerator uses rescale=1./255 (simple 0-1 normalization)
                                 const float32Data = new Float32Array(1 * 224 * 224 * 3);
                                 
-                                // Convert to HWC format (Height-Width-Channel) for TensorFlow
                                 for (let h = 0; h < 224; h++) {
                                     for (let w = 0; w < 224; w++) {
                                         const pixelIndex = (h * 224 + w) * 4;
                                         const outputIndex = h * 224 * 3 + w * 3;
                                         
-                                        // Simple 0-1 normalization (matching your training)
-                                        float32Data[outputIndex] = data[pixelIndex] / 255.0;         // R
-                                        float32Data[outputIndex + 1] = data[pixelIndex + 1] / 255.0; // G
-                                        float32Data[outputIndex + 2] = data[pixelIndex + 2] / 255.0; // B
+                                        float32Data[outputIndex] = data[pixelIndex] / 255.0;
+                                        float32Data[outputIndex + 1] = data[pixelIndex + 1] / 255.0;
+                                        float32Data[outputIndex + 2] = data[pixelIndex + 2] / 255.0;
                                     }
                                 }
                                 
-                                // 🔥 FIXED: Use HWC shape [1, 224, 224, 3] for TensorFlow/Keras
                                 const tensor = new ort.Tensor('float32', float32Data, [1, 224, 224, 3]);
                                 log('✅ Keras tensor created: [' + tensor.dims.join(',') + ']');
                                 
@@ -252,7 +300,6 @@ export default function LiveScanner() {
                     const endTime = performance.now();
                     log('⏱️ Keras inference took: ' + (endTime - startTime).toFixed(2) + 'ms');
                     
-                    // Find output tensor
                     const outputNames = session.outputNames;
                     let outputTensor = null;
                     let usedOutputName = '';
@@ -276,7 +323,6 @@ export default function LiveScanner() {
                     const predictions = Array.from(outputTensor.data);
                     log('📊 Keras predictions (already softmax): [' + predictions.map(v => v.toFixed(4)).join(', ') + ']');
                     
-                    // Normalize just to be safe
                     const probabilities = normalizeOutput(predictions);
                     
                     let maxIndex = 0;
@@ -290,7 +336,19 @@ export default function LiveScanner() {
                     }
 
                     const className = classNames[maxIndex] || 'Unknown_' + maxIndex;
+                    const classColor = classColors[maxIndex] || '#ffffff';
                     log('🎯 Keras prediction: ' + className + ', Confidence: ' + (maxValue * 100).toFixed(2) + '%');
+
+                    // 🎯 Create bounding box for detected object
+                    const boundingBox = {
+                        x: 50, // Adjust based on your detection area
+                        y: 100,
+                        width: window.innerWidth - 100,
+                        height: window.innerHeight * 0.6,
+                        label: className,
+                        confidence: maxValue,
+                        color: classColor
+                    };
 
                     window.ReactNativeWebView?.postMessage(JSON.stringify({
                         type: 'inference_result',
@@ -298,7 +356,8 @@ export default function LiveScanner() {
                         className: className,
                         confidence: maxValue,
                         allPredictions: probabilities,
-                        rawPredictions: predictions
+                        rawPredictions: predictions,
+                        boundingBox: boundingBox // 🎯 Add bounding box data
                     }));
                     
                 } catch (error) {
@@ -427,10 +486,18 @@ export default function LiveScanner() {
           setLastPrediction(data.className || `Class: ${data.class}`);
           setConfidence(data.confidence);
           addDebugLog(`🎯 ${data.className || 'Class ' + data.class}: ${(data.confidence * 100).toFixed(1)}%`);
+          
+          // 🎯 Update bounding boxes
+          if (data.boundingBox && data.confidence > 0.3) { // Only show if confidence > 30%
+            setBoundingBoxes([data.boundingBox]);
+          } else {
+            setBoundingBoxes([]);
+          }
           break;
           
         case 'inference_error':
           addDebugLog(`❌ Inference failed: ${data.message}`, 'error');
+          setBoundingBoxes([]); // Clear boxes on error
           break;
       }
     } catch (error: any) {
@@ -447,10 +514,14 @@ export default function LiveScanner() {
 
       addDebugLog('📸 Capturing photo...');
       
+      // 🔇 SILENT CAPTURE - Remove shutter sound
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: true,
         skipProcessing: true,
+        // 🔇 These options help reduce/eliminate shutter sound
+        shutterSound: false, // This may not work on all devices due to legal requirements
+        exif: false,
       });
 
       if (photo?.base64) {
@@ -499,6 +570,7 @@ export default function LiveScanner() {
     try {
       addDebugLog('⏹️ Stopping scanning...');
       setIsScanning(false);
+      setBoundingBoxes([]); // Clear bounding boxes when stopped
       if (scanningRef.current) {
         clearInterval(scanningRef.current as unknown as number);
         scanningRef.current = null;
@@ -544,6 +616,19 @@ export default function LiveScanner() {
         facing="back" 
       />
       
+      {/* 🎯 YOLO-style Bounding Box Overlay */}
+      <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+        {boundingBoxes.map((box, index) => (
+          <BoundingBox
+            key={index}
+            box={box}
+            label={box.label}
+            confidence={box.confidence}
+            color={box.color}
+          />
+        ))}
+      </Svg>
+      
       <View style={styles.uiOverlay} pointerEvents="box-none">
         <View style={styles.scanFrame} pointerEvents="none" />
         
@@ -561,7 +646,7 @@ export default function LiveScanner() {
             Status: {modelStatus}
           </Text>
           <Text style={styles.scanningStatusText}>
-            {isScanning ? '🔄 Keras Scanning Active' : '⏸️ Scanning Paused'}
+            {isScanning ? '🔄 Live Detection Active' : '⏸️ Detection Paused'}
           </Text>
           
           {debugLogs.length > 0 && (
@@ -592,7 +677,7 @@ export default function LiveScanner() {
               {isScanning ? '⏹️ STOP' : '▶️ START'}
             </Text>
             <Text style={styles.buttonSubText}>
-              {isScanning ? 'Stop live scanning' : 'Start live scanning'}
+              {isScanning ? 'Stop live detection' : 'Start live detection'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -642,12 +727,12 @@ const styles = StyleSheet.create({
     left: width * 0.1,
     right: width * 0.1,
     height: width * 0.8,
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#00ff00',
     borderRadius: 15,
     shadowColor: '#00ff00',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.3,
     shadowRadius: 10,
   },
   resultsContainer: {
