@@ -3,7 +3,7 @@ const { getDefaultConfig } = require('@expo/metro-config');
 const config = getDefaultConfig(__dirname);
 
 // Ensure model files are served as assets
-config.resolver.assetExts.push('bin', 'json', 'tflite');
+config.resolver.assetExts.push('bin', 'json', 'tflite', 'onnx', 'html');
 config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 
 // Handle large model files

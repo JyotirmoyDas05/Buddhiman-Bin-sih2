@@ -1,439 +1,619 @@
-// app/(tabs)/web-scanner.tsx
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Camera, CameraView } from 'expo-camera';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 
-export default function WebScannerScreen() {
-  const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-  <style>
-    body { 
-      margin: 0; 
-      background: #000; 
-      overflow: hidden; 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-    }
-    #video { 
-      width: 100vw; 
-      height: 100vh; 
-      object-fit: cover; 
-    }
-    #canvas { 
-      position: absolute; 
-      top: 0; 
-      left: 0; 
-      width: 100vw; 
-      height: 100vh; 
-      pointer-events: none;
-    }
-    #results { 
-      position: absolute; 
-      top: 80px; 
-      left: 20px; 
-      right: 20px;
-      color: white; 
-      text-align: center;
-      background: rgba(0,0,0,0.85); 
-      padding: 20px; 
-      border-radius: 15px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      display: none;
-    }
-    .prediction { 
-      font-size: 24px; 
-      font-weight: bold; 
-      margin-bottom: 8px;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-    }
-    .confidence { 
-      font-size: 16px; 
-      opacity: 0.9; 
-      margin-bottom: 4px;
-    }
-    .timestamp { 
-      font-size: 12px; 
-      opacity: 0.7;
-    }
-    .status-bar {
-      position: absolute;
-      top: 50px;
-      left: 20px;
-      right: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 100;
-    }
-    .status-indicator {
-      background: rgba(0,0,0,0.8);
-      padding: 8px 16px;
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #22C55E;
-      animation: pulse 2s infinite;
-    }
-    .status-text {
-      color: white;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .fps-counter {
-      background: rgba(0,0,0,0.8);
-      color: #22C55E;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .loading {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: white;
-      font-size: 18px;
-      text-align: center;
-      background: rgba(0,0,0,0.8);
-      padding: 30px;
-      border-radius: 15px;
-      max-width: 80%;
-    }
-    .scan-frame {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 280px;
-      height: 280px;
-      border: 3px dashed #22C55E;
-      border-radius: 20px;
-      pointer-events: none;
-      animation: scanPulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    @keyframes scanPulse {
-      0%, 100% { 
-        border-color: #22C55E;
-        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
-      }
-      50% { 
-        border-color: #34D399;
-        box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
-      }
-    }
-    .processing .scan-frame {
-      border-color: #F59E0B;
-      animation: processingPulse 0.5s ease-in-out infinite;
-    }
-    @keyframes processingPulse {
-      0%, 100% { border-color: #F59E0B; }
-      50% { border-color: #FBBF24; }
-    }
-  </style>
-</head>
-<body>
-  <video id="video" autoplay muted playsinline webkit-playsinline></video>
-  <canvas id="canvas"></canvas>
-  
-  <!-- Status Bar -->
-  <div class="status-bar">
-    <div class="status-indicator">
-      <div class="status-dot" id="statusDot"></div>
-      <div class="status-text" id="statusText">Initializing AI...</div>
-    </div>
-    <div class="fps-counter" id="fps">0 FPS</div>
-  </div>
+const { width, height } = Dimensions.get('window');
 
-  <!-- Scan Frame -->
-  <div class="scan-frame" id="scanFrame"></div>
+export default function LiveScanner() {
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [lastPrediction, setLastPrediction] = useState<string>('');
+  const [confidence, setConfidence] = useState<number>(0);
+  const [modelStatus, setModelStatus] = useState<string>('Loading...');
+  const [webViewReady, setWebViewReady] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const cameraRef = useRef<CameraView>(null);
+  const webViewRef = useRef<WebView>(null);
+  const scanningRef = useRef<NodeJS.Timeout | null>(null);
 
-  <!-- Results -->
-  <div id="results"></div>
-
-  <!-- Loading Screen -->
-  <div class="loading" id="loading">
-    🤖 Loading AI Model...<br>
-    <small style="opacity: 0.7; margin-top: 10px; display: block;">
-      Please wait while we initialize the waste classification system
-    </small>
-  </div>
-
-  <script>
-    let model = null;
-    let isProcessing = false;
-    let frameCount = 0;
-    let lastFpsUpdate = Date.now();
-
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const resultsDiv = document.getElementById('results');
-    const loadingDiv = document.getElementById('loading');
-    const fpsDiv = document.getElementById('fps');
-    const statusText = document.getElementById('statusText');
-    const statusDot = document.getElementById('statusDot');
-    const scanFrame = document.getElementById('scanFrame');
-
-    // Replace with your actual server domain
-    const MODEL_URL = 'https://api.masksandmachetes.com/api/notifications/models/model.json';
-
-
-    async function loadModel() {
-      try {
-        console.log('🔄 Loading AI model from:', MODEL_URL);
-        loadingDiv.innerHTML = '🔄 Downloading AI model...<br><small>This may take a moment</small>';
-        statusText.textContent = 'Loading AI Model...';
-        
-        // Test if model URL is accessible
-        console.log('🧪 Testing model URL accessibility...');
-        const testResponse = await fetch(MODEL_URL.replace('.json', '.json'), { method: 'HEAD' });
-        if (!testResponse.ok) {
-          throw new Error(\`Model not accessible: HTTP \${testResponse.status}\`);
+  const consoleRedirectScript = `
+    (function() {
+      const originalLog = console.log;
+      const originalError = console.error;
+      
+      window.addEventListener('error', function(e) {
+        originalError('Uncaught error:', e.error);
+        return true;
+      });
+      
+      console.log = function(...args) {
+        try {
+          originalLog.apply(console, args);
+          window.ReactNativeWebView?.postMessage(JSON.stringify({
+            type: 'console_log',
+            level: 'log',
+            message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ')
+          }));
+        } catch (e) {
+          originalError('Console log error:', e);
         }
-        
-        // Load the TensorFlow.js model (automatically loads all shard files)
-        model = await tf.loadLayersModel(MODEL_URL);
-        
-        console.log('✅ AI model loaded successfully!');
-        console.log('📊 Model input shape:', model.inputs[0].shape);
-        console.log('📊 Model output shape:', model.outputs[0].shape);
-        
-        // Update UI
-        loadingDiv.style.display = 'none';
-        resultsDiv.style.display = 'block';
-        statusText.textContent = 'AI Ready';
-        statusDot.style.background = '#22C55E';
-        
-        updateResults('Point camera at waste item', 'AI Model Ready - Start scanning!', '#22C55E');
-        
-      } catch (error) {
-        console.error('❌ Model loading failed:', error);
-        statusText.textContent = 'AI Load Failed';
-        statusDot.style.background = '#EF4444';
-        
-        loadingDiv.innerHTML = \`
-          <div style="color: #EF4444; text-align: center;">
-            ❌ Failed to Load AI Model<br>
-            <small style="margin-top: 10px; display: block;">
-              Error: \${error.message}<br><br>
-              Please check your internet connection<br>
-              or try refreshing the page
-            </small>
-          </div>
-        \`;
-      }
-    }
+      };
+      
+      console.error = function(...args) {
+        try {
+          originalError.apply(console, args);
+          window.ReactNativeWebView?.postMessage(JSON.stringify({
+            type: 'console_log',
+            level: 'error',
+            message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ')
+          }));
+        } catch (e) {
+          originalError('Console error error:', e);
+        }
+      };
+      
+      console.log('🚀 Console redirection initialized');
+    })();
+    true;
+  `;
 
-    async function setupCamera() {
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js"></script>
+    </head>
+    <body>
+        <div style="color: white; padding: 10px; background: #333;">
+            <h3>Waste Classifier - Keras Model</h3>
+            <p id="status">Initializing...</p>
+        </div>
+        
+        <script>
+            let session = null;
+            // 🔥 FIXED: Your exact class names from Keras training
+            const classNames = ['biodegradable', 'non_biodegradable', 'toxic'];
+            
+            function updateStatus(message) {
+                try {
+                    console.log('📊 STATUS:', message);
+                    const statusEl = document.getElementById('status');
+                    if (statusEl) {
+                        statusEl.textContent = message;
+                    }
+                } catch (e) {
+                    console.error('Status update error:', e);
+                }
+            }
+            
+            function log(message) {
+                try {
+                    console.log('🔍 DEBUG:', message);
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'debug_log',
+                        message: message
+                    }));
+                } catch (e) {
+                    console.error('Log error:', e);
+                }
+            }
+
+            // No need for softmax - Keras model already includes it
+            function normalizeOutput(predictions) {
+                // Just ensure they sum to 1 (they should already from Keras softmax)
+                const sum = predictions.reduce((a, b) => a + b, 0);
+                return sum > 0 ? predictions.map(p => p / sum) : predictions;
+            }
+
+            async function initModel() {
+                try {
+                    updateStatus('Loading Keras ONNX model...');
+                    log('🚀 Starting Keras model initialization');
+                    
+                    // 🔥 FIXED: Use your Keras model instead
+                    const modelUrl = 'https://raw.githubusercontent.com/BhairabMahanta/sih2/master/assets/models/waste_classifier.onnx';
+                    
+                    log('📥 Downloading Keras model from: ' + modelUrl);
+                    const response = await fetch(modelUrl, { 
+                        cache: 'no-cache',
+                        mode: 'cors'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to download model: ' + response.status);
+                    }
+                    
+                    const arrayBuffer = await response.arrayBuffer();
+                    log('✅ Keras model downloaded: ' + arrayBuffer.byteLength + ' bytes');
+                    
+                    updateStatus('Creating ONNX session...');
+                    session = await ort.InferenceSession.create(arrayBuffer, {
+                        executionProviders: ['wasm']
+                    });
+                    
+                    log('✅ ONNX session created');
+                    log('📥 Input names: [' + session.inputNames.join(', ') + ']');
+                    log('📤 Output names: [' + session.outputNames.join(', ') + ']');
+                    
+                    updateStatus('Keras Model ready ✅');
+                    
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'model_ready',
+                        status: 'success',
+                        inputNames: session.inputNames,
+                        outputNames: session.outputNames
+                    }));
+                    
+                } catch (error) {
+                    const errorMsg = error.message || error.toString();
+                    log('❌ Keras model initialization failed: ' + errorMsg);
+                    updateStatus('Error: ' + errorMsg);
+                    
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'model_ready',
+                        status: 'error',
+                        message: errorMsg
+                    }));
+                }
+            }
+
+            async function preprocessImage(imageDataUrl) {
+                return new Promise((resolve, reject) => {
+                    try {
+                        log('🖼️ Starting Keras image preprocessing...');
+                        
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const img = new Image();
+                        
+                        img.onload = () => {
+                            try {
+                                log('📏 Original image: ' + img.width + 'x' + img.height);
+                                
+                                canvas.width = 224;
+                                canvas.height = 224;
+                                ctx.drawImage(img, 0, 0, 224, 224);
+                                
+                                const imageData = ctx.getImageData(0, 0, 224, 224);
+                                const data = imageData.data;
+                                
+                                // 🔥 FIXED: Keras/TensorFlow preprocessing (simpler than PyTorch)
+                                // Keras ImageDataGenerator uses rescale=1./255 (simple 0-1 normalization)
+                                const float32Data = new Float32Array(1 * 224 * 224 * 3);
+                                
+                                // Convert to HWC format (Height-Width-Channel) for TensorFlow
+                                for (let h = 0; h < 224; h++) {
+                                    for (let w = 0; w < 224; w++) {
+                                        const pixelIndex = (h * 224 + w) * 4;
+                                        const outputIndex = h * 224 * 3 + w * 3;
+                                        
+                                        // Simple 0-1 normalization (matching your training)
+                                        float32Data[outputIndex] = data[pixelIndex] / 255.0;         // R
+                                        float32Data[outputIndex + 1] = data[pixelIndex + 1] / 255.0; // G
+                                        float32Data[outputIndex + 2] = data[pixelIndex + 2] / 255.0; // B
+                                    }
+                                }
+                                
+                                // 🔥 FIXED: Use HWC shape [1, 224, 224, 3] for TensorFlow/Keras
+                                const tensor = new ort.Tensor('float32', float32Data, [1, 224, 224, 3]);
+                                log('✅ Keras tensor created: [' + tensor.dims.join(',') + ']');
+                                
+                                resolve(tensor);
+                            } catch (error) {
+                                log('❌ Error in Keras image processing: ' + error.message);
+                                reject(error);
+                            }
+                        };
+                        
+                        img.onerror = (error) => {
+                            log('❌ Error loading image: ' + error);
+                            reject(new Error('Failed to load image'));
+                        };
+                        
+                        img.crossOrigin = 'anonymous';
+                        img.src = imageDataUrl;
+                        
+                    } catch (error) {
+                        log('❌ Error in preprocessImage: ' + error.message);
+                        reject(error);
+                    }
+                });
+            }
+
+            async function runInference(imageDataUrl) {
+                try {
+                    log('🔍 Starting Keras inference...');
+                    
+                    if (!session) {
+                        throw new Error('Model session not ready');
+                    }
+
+                    const inputTensor = await preprocessImage(imageDataUrl);
+                    
+                    log('🧮 Running Keras model inference...');
+                    const startTime = performance.now();
+                    
+                    const inputName = session.inputNames[0];
+                    const feeds = {};
+                    feeds[inputName] = inputTensor;
+                    
+                    const results = await session.run(feeds);
+                    
+                    const endTime = performance.now();
+                    log('⏱️ Keras inference took: ' + (endTime - startTime).toFixed(2) + 'ms');
+                    
+                    // Find output tensor
+                    const outputNames = session.outputNames;
+                    let outputTensor = null;
+                    let usedOutputName = '';
+                    
+                    for (let i = 0; i < outputNames.length; i++) {
+                        const name = outputNames[i];
+                        if (results[name]) {
+                            outputTensor = results[name];
+                            usedOutputName = name;
+                            break;
+                        }
+                    }
+                    
+                    if (!outputTensor) {
+                        log('❌ Available output keys: [' + Object.keys(results).join(', ') + ']');
+                        throw new Error('No valid output tensor found. Available: ' + Object.keys(results).join(', '));
+                    }
+                    
+                    log('✅ Using output tensor: ' + usedOutputName);
+                    
+                    const predictions = Array.from(outputTensor.data);
+                    log('📊 Keras predictions (already softmax): [' + predictions.map(v => v.toFixed(4)).join(', ') + ']');
+                    
+                    // Normalize just to be safe
+                    const probabilities = normalizeOutput(predictions);
+                    
+                    let maxIndex = 0;
+                    let maxValue = probabilities[0];
+                    
+                    for (let i = 1; i < probabilities.length; i++) {
+                        if (probabilities[i] > maxValue) {
+                            maxValue = probabilities[i];
+                            maxIndex = i;
+                        }
+                    }
+
+                    const className = classNames[maxIndex] || 'Unknown_' + maxIndex;
+                    log('🎯 Keras prediction: ' + className + ', Confidence: ' + (maxValue * 100).toFixed(2) + '%');
+
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'inference_result',
+                        class: maxIndex,
+                        className: className,
+                        confidence: maxValue,
+                        allPredictions: probabilities,
+                        rawPredictions: predictions
+                    }));
+                    
+                } catch (error) {
+                    const errorMsg = error.message || error.toString();
+                    log('❌ Keras inference error: ' + errorMsg);
+                    
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'inference_error',
+                        message: errorMsg
+                    }));
+                }
+            }
+
+            function handleMessage(data) {
+                try {
+                    if (data.type === 'run_inference') {
+                        log('📨 Received Keras inference request');
+                        runInference(data.imageDataUrl).catch(e => {
+                            log('❌ Async Keras inference error: ' + e.message);
+                        });
+                    }
+                } catch (error) {
+                    log('❌ Message handling error: ' + error.message);
+                }
+            }
+
+            window.addEventListener('message', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (error) {
+                    log('❌ Window message parsing error: ' + error.message);
+                }
+            });
+
+            document.addEventListener('message', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (error) {
+                    log('❌ Document message parsing error: ' + error.message);
+                }
+            });
+
+            function safeInit() {
+                try {
+                    log('🚀 Starting Keras model safe initialization...');
+                    initModel().catch(e => {
+                        log('❌ Async Keras init error: ' + e.message);
+                    });
+                } catch (e) {
+                    log('❌ Keras init error: ' + e.message);
+                }
+            }
+
+            if (document.readyState === 'complete') {
+                safeInit();
+            } else {
+                window.addEventListener('load', safeInit);
+            }
+        </script>
+    </body>
+    </html>
+  `;
+
+  useEffect(() => {
+    (async () => {
       try {
-        console.log('📷 Requesting camera access...');
-        statusText.textContent = 'Requesting Camera...';
-        
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            facingMode: 'environment', // Use back camera
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        });
-        
-        video.srcObject = stream;
-        console.log('✅ Camera access granted');
-        
-        video.addEventListener('loadedmetadata', () => {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          console.log(\`📐 Camera resolution: \${video.videoWidth}x\${video.videoHeight}\`);
-          
-          if (model) {
-            statusText.textContent = 'AI Active';
-            processFrames();
-          } else {
-            statusText.textContent = 'Waiting for AI...';
-          }
-        });
-        
-      } catch (error) {
-        console.error('❌ Camera access failed:', error);
-        statusText.textContent = 'Camera Failed';
-        statusDot.style.background = '#EF4444';
-        
-        loadingDiv.innerHTML = \`
-          <div style="color: #EF4444; text-align: center;">
-            📷 Camera Access Denied<br>
-            <small style="margin-top: 10px; display: block;">
-              Please enable camera permission in your browser<br>
-              and refresh the page to continue
-            </small>
-          </div>
-        \`;
+        const { status } = await Camera.requestCameraPermissionsAsync();
+        setHasPermission(status === 'granted');
+      } catch (error: any) {
+        console.error('Camera permission error:', error);
+        setHasPermission(false);
       }
-    }
+    })();
+  }, []);
 
-    async function processFrames() {
-      if (!model || isProcessing || video.paused || video.ended || video.readyState !== 4) {
-        requestAnimationFrame(processFrames);
+  const addDebugLog = (message: string, level: string = 'log') => {
+    try {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = `[${timestamp}] ${message}`;
+      setDebugLogs(prev => [...prev.slice(-20), logEntry]);
+      
+      if (level === 'error') {
+        console.error('[WebView]', message);
+      } else {
+        console.log('[WebView]', message);
+      }
+    } catch (error) {
+      console.error('Debug log error:', error);
+    }
+  };
+
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      
+      switch (data.type) {
+        case 'console_log':
+          addDebugLog(`${data.level.toUpperCase()}: ${data.message}`, data.level);
+          break;
+          
+        case 'debug_log':
+          addDebugLog(data.message);
+          break;
+          
+        case 'model_ready':
+          if (data.status === 'success') {
+            setModelStatus('Keras Model ready ✅');
+            setWebViewReady(true);
+            addDebugLog('✅ Keras model loaded successfully');
+            addDebugLog(`📥 Inputs: [${data.inputNames?.join(', ') || 'unknown'}]`);
+            addDebugLog(`📤 Outputs: [${data.outputNames?.join(', ') || 'unknown'}]`);
+            
+            setTimeout(() => {
+              startScanning();
+            }, 1000);
+            
+          } else {
+            setModelStatus(`Error: ${data.message}`);
+            addDebugLog(`❌ Keras model error: ${data.message}`, 'error');
+          }
+          break;
+          
+        case 'inference_result':
+          setLastPrediction(data.className || `Class: ${data.class}`);
+          setConfidence(data.confidence);
+          addDebugLog(`🎯 ${data.className || 'Class ' + data.class}: ${(data.confidence * 100).toFixed(1)}%`);
+          break;
+          
+        case 'inference_error':
+          addDebugLog(`❌ Inference failed: ${data.message}`, 'error');
+          break;
+      }
+    } catch (error: any) {
+      addDebugLog(`❌ Message parsing error: ${error.message}`, 'error');
+    }
+  };
+
+  const captureAndAnalyze = async () => {
+    try {
+      if (!cameraRef.current || !webViewReady) {
+        addDebugLog('⚠️ Camera or WebView not ready');
         return;
       }
 
-      isProcessing = true;
-      document.body.classList.add('processing');
+      addDebugLog('📸 Capturing photo...');
       
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        base64: true,
+        skipProcessing: true,
+      });
+
+      if (photo?.base64) {
+        const imageDataUrl = `data:image/jpeg;base64,${photo.base64}`;
+        addDebugLog('📤 Sending image for Keras inference...');
+        
+        webViewRef.current?.postMessage(JSON.stringify({
+          type: 'run_inference',
+          imageDataUrl: imageDataUrl
+        }));
+      } else {
+        addDebugLog('❌ Failed to capture photo - no base64 data', 'error');
+      }
+    } catch (error: any) {
+      addDebugLog(`❌ Capture error: ${error.message}`, 'error');
+    }
+  };
+
+  const startScanning = () => {
+    try {
+      if (!webViewReady) {
+        addDebugLog('⚠️ Cannot start scanning - WebView not ready');
+        return;
+      }
+      
+      addDebugLog('▶️ Starting automatic Keras scanning...');
+      setIsScanning(true);
+      
+      setTimeout(() => {
+        captureAndAnalyze().catch(e => {
+          addDebugLog(`❌ Initial capture error: ${e.message}`, 'error');
+        });
+      }, 500);
+      
+      scanningRef.current = setInterval(() => {
+        captureAndAnalyze().catch(e => {
+          addDebugLog(`❌ Interval capture error: ${e.message}`, 'error');
+        });
+      }, 2500) as unknown as NodeJS.Timeout;
+    } catch (error: any) {
+      addDebugLog(`❌ Start scanning error: ${error.message}`, 'error');
+    }
+  };
+
+  const stopScanning = () => {
+    try {
+      addDebugLog('⏹️ Stopping scanning...');
+      setIsScanning(false);
+      if (scanningRef.current) {
+        clearInterval(scanningRef.current as unknown as number);
+        scanningRef.current = null;
+      }
+    } catch (error: any) {
+      addDebugLog(`❌ Stop scanning error: ${error.message}`, 'error');
+    }
+  };
+
+  useEffect(() => {
+    return () => {
       try {
-        // Draw current video frame
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Create tensor from canvas (adjust size based on your model requirements)
-        const tensor = tf.browser.fromPixels(canvas)
-          .resizeNearestNeighbor([224, 224]) // Most waste classification models use 224x224
-          .expandDims(0) // Add batch dimension
-          .div(255.0); // Normalize to [0,1]
-
-        // Run prediction
-        const startTime = performance.now();
-        const predictions = await model.predict(tensor).data();
-        const inferenceTime = performance.now() - startTime;
-        
-        // Process results based on your model's output format
-        let wasteType, confidence, color;
-        
-        if (predictions.length >= 2) {
-          // Multi-class output: [biodegradable_prob, non_biodegradable_prob, ...]
-          const biodegradableProb = predictions[0];
-          const nonBiodegradableProb = predictions[1];
-          
-          if (biodegradableProb > nonBiodegradableProb) {
-            wasteType = '🌱 Biodegradable';
-            confidence = biodegradableProb * 100;
-            color = '#22C55E';
-          } else {
-            wasteType = '🗑️ Non-biodegradable';
-            confidence = nonBiodegradableProb * 100;
-            color = '#EF4444';
-          }
-        } else {
-          // Single output with sigmoid: [probability]
-          const prob = predictions[0];
-          if (prob > 0.5) {
-            wasteType = '🌱 Biodegradable';
-            confidence = prob * 100;
-            color = '#22C55E';
-          } else {
-            wasteType = '🗑️ Non-biodegradable';
-            confidence = (1 - prob) * 100;
-            color = '#EF4444';
-          }
+        if (scanningRef.current) {
+          clearInterval(scanningRef.current as unknown as number);
         }
-        
-        // Update UI with results
-        updateResults(
-          wasteType, 
-          \`\${confidence.toFixed(1)}% confident • \${inferenceTime.toFixed(0)}ms inference\`,
-          color
-        );
-        
-        // Clean up tensor memory
-        tensor.dispose();
-        updateFPS();
-        
       } catch (error) {
-        console.error('❌ Prediction error:', error);
-        updateResults('⚠️ Processing Error', 'Model inference failed - trying again...', '#F59E0B');
+        console.error('Cleanup error:', error);
       }
-      
-      isProcessing = false;
-      document.body.classList.remove('processing');
-      
-      // Continue processing with delay for better performance
-      setTimeout(() => requestAnimationFrame(processFrames), 750); // ~1.3 FPS for better performance
-    }
+    };
+  }, []);
 
-    function updateResults(prediction, details, color) {
-      resultsDiv.innerHTML = \`
-        <div class="prediction" style="color: \${color}">\${prediction}</div>
-        <div class="confidence">\${details}</div>
-        <div class="timestamp">\${new Date().toLocaleTimeString()}</div>
-      \`;
-    }
-
-    function updateFPS() {
-      frameCount++;
-      const now = Date.now();
-      if (now - lastFpsUpdate >= 1000) {
-        const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
-        fpsDiv.textContent = \`\${fps} FPS\`;
-        frameCount = 0;
-        lastFpsUpdate = now;
-      }
-    }
-
-    // Initialize everything
-    console.log('🚀 Starting WebView TensorFlow.js Waste Scanner...');
-    console.log('🌐 TensorFlow.js version:', tf.version.tfjs);
-    
-    // Start model loading and camera setup in parallel
-    Promise.all([
-      loadModel(),
-      setupCamera()
-    ]).then(() => {
-      console.log('✅ Initialization complete');
-      
-      // Start processing when both are ready
-      const checkReady = setInterval(() => {
-        if (model && video.readyState >= 3 && canvas.width > 0) {
-          clearInterval(checkReady);
-          console.log('🎬 Starting real-time processing...');
-          processFrames();
-        }
-      }, 100);
-    }).catch(error => {
-      console.error('❌ Initialization failed:', error);
-    });
-  </script>
-</body>
-</html>
-  `;
+  if (hasPermission === null) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.messageText}>Requesting camera permission...</Text>
+      </View>
+    );
+  }
+  
+  if (hasPermission === false) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.messageText}>Camera access denied. Please enable camera permissions.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-<WebView
-  source={{ html: htmlContent }}
-  style={styles.webview}
-  allowsInlineMediaPlayback={true}
-  mediaPlaybackRequiresUserAction={false}
-  javaScriptEnabled={true}
-  domStorageEnabled={true}
-  allowsFullscreenVideo={false}
-  startInLoadingState={false}
-  scalesPageToFit={false}
-  // ✅ Add these camera permission props
-  allowsAccessibilitySupport={true}
-  allowFileAccess={true}
-  allowUniversalAccessFromFileURLs={true}
-  mixedContentMode="compatibility"
-  // ✅ Handle permission requests
-  onPermissionRequest={(request:any) => {
-    console.log('📷 Permission requested:', request.nativeEvent);
-    request.nativeEvent.grant();
-  }}
-  onError={(error) => console.log('❌ WebView error:', error.nativeEvent)}
-/>
+      <CameraView 
+        ref={cameraRef} 
+        style={styles.camera} 
+        facing="back" 
+      />
+      
+      <View style={styles.uiOverlay} pointerEvents="box-none">
+        <View style={styles.scanFrame} pointerEvents="none" />
+        
+        <View style={styles.resultsContainer} pointerEvents="box-none">
+          <Text style={styles.resultText}>
+            {lastPrediction || 'No detection'}
+          </Text>
+          <Text style={styles.confidenceText}>
+            Confidence: {(confidence * 100).toFixed(1)}%
+          </Text>
+          <Text style={[styles.statusText, { 
+            color: webViewReady ? '#00ff00' : 
+                   modelStatus.includes('Error') ? '#ff3030' : '#ff9900' 
+          }]}>
+            Status: {modelStatus}
+          </Text>
+          <Text style={styles.scanningStatusText}>
+            {isScanning ? '🔄 Keras Scanning Active' : '⏸️ Scanning Paused'}
+          </Text>
+          
+          {debugLogs.length > 0 && (
+            <View style={styles.debugContainer}>
+              <ScrollView style={styles.debugScrollView} showsVerticalScrollIndicator={false}>
+                {debugLogs.slice(-4).map((log, index) => (
+                  <Text key={index} style={styles.debugText}>
+                    {log}
+                  </Text>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
 
+        <View style={styles.buttonContainer} pointerEvents="box-none">
+          <TouchableOpacity
+            style={[
+              styles.button, 
+              isScanning ? styles.buttonStop : styles.buttonStart,
+              !webViewReady && styles.buttonDisabled
+            ]}
+            onPress={isScanning ? stopScanning : startScanning}
+            disabled={!webViewReady}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonText}>
+              {isScanning ? '⏹️ STOP' : '▶️ START'}
+            </Text>
+            <Text style={styles.buttonSubText}>
+              {isScanning ? 'Stop live scanning' : 'Start live scanning'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      <WebView
+        ref={webViewRef}
+        source={{ html: htmlContent }}
+        style={styles.hiddenWebView}
+        onMessage={handleWebViewMessage}
+        injectedJavaScript={consoleRedirectScript}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        allowFileAccess={true}
+        allowFileAccessFromFileURLs={true}
+        mixedContentMode="compatibility"
+        onError={(error) => addDebugLog(`WebView Error: ${error.nativeEvent.description}`, 'error')}
+        onLoadStart={() => addDebugLog('WebView loading started')}
+        onLoadEnd={() => addDebugLog('WebView loading finished')}
+        onHttpError={(error) => addDebugLog(`HTTP Error: ${error.nativeEvent.statusCode}`, 'error')}
+      />
     </View>
   );
 }
@@ -443,7 +623,145 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#000' 
   },
-  webview: { 
-    flex: 1 
+  camera: { 
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  uiOverlay: { 
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+  },
+  scanFrame: {
+    position: 'absolute',
+    top: height * 0.25,
+    left: width * 0.1,
+    right: width * 0.1,
+    height: width * 0.8,
+    borderWidth: 3,
+    borderColor: '#00ff00',
+    borderRadius: 15,
+    shadowColor: '#00ff00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+  },
+  resultsContainer: {
+    position: 'absolute',
+    top: 50,
+    left: 15,
+    right: 15,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    padding: 20,
+    borderRadius: 15,
+    maxHeight: height * 0.4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  resultText: { 
+    color: 'white', 
+    fontSize: 20, 
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  confidenceText: { 
+    color: '#00ff00', 
+    fontSize: 16, 
+    textAlign: 'center',
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  statusText: { 
+    fontSize: 12, 
+    textAlign: 'center',
+    fontWeight: 'bold',
+    marginBottom: 3,
+  },
+  scanningStatusText: {
+    color: '#ffcc00',
+    fontSize: 11,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  debugContainer: { 
+    marginTop: 8, 
+    maxHeight: 80,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    paddingTop: 8,
+  },
+  debugScrollView: { 
+    maxHeight: 70 
+  },
+  debugText: { 
+    color: '#ccc', 
+    fontSize: 8, 
+    marginTop: 1,
+    lineHeight: 12,
+  },
+  buttonContainer: { 
+    position: 'absolute', 
+    bottom: 100, 
+    left: 40, 
+    right: 40,
+    alignItems: 'center',
+  },
+  button: { 
+    paddingVertical: 18,
+    paddingHorizontal: 40,
+    borderRadius: 30,
+    alignItems: 'center',
+    minWidth: 160,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 15,
+    borderWidth: 2,
+  },
+  buttonStart: {
+    backgroundColor: '#00AA00',
+    borderColor: '#00ff00',
+  },
+  buttonStop: { 
+    backgroundColor: '#FF3030',
+    borderColor: '#ff6060',
+  },
+  buttonDisabled: {
+    backgroundColor: '#666',
+    borderColor: '#888',
+    opacity: 0.6,
+  },
+  buttonText: { 
+    color: 'white', 
+    fontSize: 18, 
+    fontWeight: 'bold',
+  },
+  buttonSubText: {
+    color: 'white',
+    fontSize: 11,
+    marginTop: 3,
+    opacity: 0.9,
+  },
+  messageText: { 
+    color: 'white', 
+    fontSize: 18, 
+    textAlign: 'center', 
+    marginTop: 150,
+    paddingHorizontal: 30,
+  },
+  hiddenWebView: {
+    position: 'absolute',
+    top: -2000,
+    left: -2000,
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
 });

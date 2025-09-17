@@ -22,34 +22,35 @@
       ],
       "package": "com.anonymous.AmarteamName"
     },
-    "plugins": [
-      "expo-dev-client",
-      [
-        "react-native-fast-tflite",
-        {
-          "enableCoreMLDelegate": true,
-          "enableAndroidGpuLibraries": true
-        }
-      ],
-      "expo-router",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "minSdkVersion": 24,
-            "buildToolsVersion": "34.0.0"
-          }
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
-        }
-      ]
-    ],
+   "plugins": [
+  "expo-dev-client",
+  [
+    "react-native-fast-tflite",
+    {
+      "enableCoreMLDelegate": true,
+      "enableAndroidGpuLibraries": true
+    }
+  ],
+  "expo-router",
+  [
+    "expo-build-properties",
+    {
+      "android": {
+        "compileSdkVersion": 35,
+        "targetSdkVersion": 35,
+        "minSdkVersion": 24,
+        "buildToolsVersion": "34.0.0"
+      }
+    }
+  ],
+  [
+    "expo-camera",
+    {
+      "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
+    }
+  ],
+  "expo-asset"
+],
     "experiments": {
       "typedRoutes": true
     },
