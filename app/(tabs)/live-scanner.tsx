@@ -26,59 +26,56 @@ export default function LiveScanner() {
   const webViewRef = useRef<WebView>(null);
   const scanningRef = useRef<NodeJS.Timeout | null>(null);
 
-// Add this interface near the top of your file
-interface BoundingBoxProps {
-  box: {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-  } | number[];
-  label: string;
-  confidence: number;
-  color?: string;
-}
+  interface BoundingBoxProps {
+    box: {
+      x?: number;
+      y?: number;
+      width?: number;
+      height?: number;
+    } | number[];
+    label: string;
+    confidence: number;
+    color?: string;
+  }
 
-// Replace your BoundingBox component with this properly typed version:
-const BoundingBox: React.FC<BoundingBoxProps> = ({ box, label, confidence, color = '#ff0000' }) => {
-  const boxWidth = Array.isArray(box) ? (box[2] - box[0]) : (box.width || 0);
-  const boxHeight = Array.isArray(box) ? (box[3] - box[1]) : (box.height || 0);
-  const x = Array.isArray(box) ? box[0] : (box.x || 0);
-  const y = Array.isArray(box) ? box[1] : (box.y || 0);
+  const BoundingBox: React.FC<BoundingBoxProps> = ({ box, label, confidence, color = '#ff0000' }) => {
+    const boxWidth = Array.isArray(box) ? (box[2] - box[0]) : (box.width || 0);
+    const boxHeight = Array.isArray(box) ? (box[3] - box[1]) : (box.height || 0);
+    const x = Array.isArray(box) ? box[0] : (box.x || 0);
+    const y = Array.isArray(box) ? box[1] : (box.y || 0);
 
-  return (
-    <>
-      <Rect
-        x={x}
-        y={y}
-        width={boxWidth}
-        height={boxHeight}
-        stroke={color}
-        strokeWidth={3}
-        fill="transparent"
-        strokeDasharray="10,5"
-      />
-      <Rect
-        x={x}
-        y={y - 25}
-        width={Math.max(label.length * 8, 100)}
-        height={25}
-        fill={color}
-        fillOpacity={0.8}
-      />
-      <SvgText
-        x={x + 5}
-        y={y - 8}
-        fill="white"
-        fontSize={12}
-        fontWeight="bold"
-      >
-        {`${label} ${(confidence * 100).toFixed(0)}%`}
-      </SvgText>
-    </>
-  );
-};
-
+    return (
+      <>
+        <Rect
+          x={x}
+          y={y}
+          width={boxWidth}
+          height={boxHeight}
+          stroke={color}
+          strokeWidth={3}
+          fill="transparent"
+          strokeDasharray="10,5"
+        />
+        <Rect
+          x={x}
+          y={y - 25}
+          width={Math.max(label.length * 8, 100)}
+          height={25}
+          fill={color}
+          fillOpacity={0.8}
+        />
+        <SvgText
+          x={x + 5}
+          y={y - 8}
+          fill="white"
+          fontSize={12}
+          fontWeight="bold"
+        >
+          {`${label} ${(confidence * 100).toFixed(0)}%`}
+        </SvgText>
+      </>
+    );
+  };
 
   const consoleRedirectScript = `
     (function() {
@@ -466,7 +463,7 @@ const BoundingBox: React.FC<BoundingBoxProps> = ({ box, label, confidence, color
           
         case 'model_ready':
           if (data.status === 'success') {
-            setModelStatus('Keras Model ready ✅');
+            setModelStatus('Ready');
             setWebViewReady(true);
             addDebugLog('✅ Keras model loaded successfully');
             addDebugLog(`📥 Inputs: [${data.inputNames?.join(', ') || 'unknown'}]`);
@@ -592,6 +589,14 @@ const BoundingBox: React.FC<BoundingBoxProps> = ({ box, label, confidence, color
     };
   }, []);
 
+  // Helper function to format detection status
+  const getDetectionStatusText = () => {
+    if (!lastPrediction || confidence === 0) {
+      return isScanning ? 'No detection' : 'No detection (paused)';
+    }
+    return lastPrediction;
+  };
+
   if (hasPermission === null) {
     return (
       <View style={styles.container}>
@@ -610,14 +615,15 @@ const BoundingBox: React.FC<BoundingBoxProps> = ({ box, label, confidence, color
 
   return (
     <View style={styles.container}>
+      {/* 🔥 FIXED: Camera now takes full screen without interference */}
       <CameraView 
         ref={cameraRef} 
         style={styles.camera} 
         facing="back" 
       />
       
-      {/* 🎯 YOLO-style Bounding Box Overlay */}
-      <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      {/* 🎯 FIXED: Bounding Box Overlay with proper pointer events */}
+      <Svg style={styles.svgOverlay} pointerEvents="none">
         {boundingBoxes.map((box, index) => (
           <BoundingBox
             key={index}
@@ -629,58 +635,63 @@ const BoundingBox: React.FC<BoundingBoxProps> = ({ box, label, confidence, color
         ))}
       </Svg>
       
-      <View style={styles.uiOverlay} pointerEvents="box-none">
-        <View style={styles.scanFrame} pointerEvents="none" />
-        
-        <View style={styles.resultsContainer} pointerEvents="box-none">
-          <Text style={styles.resultText}>
-            {lastPrediction || 'No detection'}
-          </Text>
-          <Text style={styles.confidenceText}>
-            Confidence: {(confidence * 100).toFixed(1)}%
-          </Text>
-          <Text style={[styles.statusText, { 
-            color: webViewReady ? '#00ff00' : 
-                   modelStatus.includes('Error') ? '#ff3030' : '#ff9900' 
-          }]}>
-            Status: {modelStatus}
-          </Text>
+      {/* 🔥 FIXED: Results container positioned absolutely without blocking camera */}
+      <View style={styles.resultsContainer} pointerEvents="box-none">
+        <Text style={styles.resultText}>
+          {getDetectionStatusText()}
+        </Text>
+        <Text style={styles.confidenceText}>
+          Confidence: {(confidence * 100).toFixed(1)}%
+        </Text>
+        <Text style={[styles.statusText, { 
+          color: webViewReady ? '#00ff00' : 
+                 modelStatus.includes('Error') ? '#ff3030' : '#ff9900' 
+        }]}>
+          Status: {modelStatus}
+        </Text>
+        {isScanning && (
           <Text style={styles.scanningStatusText}>
-            {isScanning ? '🔄 Live Detection Active' : '⏸️ Detection Paused'}
+            🔄 Live Detection Active
           </Text>
-          
-          {debugLogs.length > 0 && (
-            <View style={styles.debugContainer}>
-              <ScrollView style={styles.debugScrollView} showsVerticalScrollIndicator={false}>
-                {debugLogs.slice(-4).map((log, index) => (
-                  <Text key={index} style={styles.debugText}>
-                    {log}
-                  </Text>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-        </View>
+        )}
+      </View>
 
-        <View style={styles.buttonContainer} pointerEvents="box-none">
-          <TouchableOpacity
-            style={[
-              styles.button, 
-              isScanning ? styles.buttonStop : styles.buttonStart,
-              !webViewReady && styles.buttonDisabled
-            ]}
-            onPress={isScanning ? stopScanning : startScanning}
-            disabled={!webViewReady}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.buttonText}>
-              {isScanning ? '⏹️ STOP' : '▶️ START'}
-            </Text>
-            <Text style={styles.buttonSubText}>
-              {isScanning ? 'Stop live detection' : 'Start live detection'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+      {/* 🔥 FIXED: Scan frame positioned properly without blocking camera */}
+      <View style={styles.scanFrame} pointerEvents="none" />
+
+      {/* 🔥 FIXED: Button container with proper touch handling */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.button, 
+            isScanning ? styles.buttonStop : styles.buttonStart,
+            !webViewReady && styles.buttonDisabled
+          ]}
+          onPress={isScanning ? stopScanning : startScanning}
+          disabled={!webViewReady}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>
+            {isScanning ? '⏹️ STOP' : '▶️ START'}
+          </Text>
+          <Text style={styles.buttonSubText}>
+            {isScanning ? 'Stop live detection' : 'Start live detection'}
+          </Text>
+        </TouchableOpacity>
+        
+        {/* 🔥 FIXED: Debug container positioned properly */}
+        {debugLogs.length > 0 && (
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugHeader}>Debug Logs:</Text>
+            <ScrollView style={styles.debugScrollView} showsVerticalScrollIndicator={false}>
+              {debugLogs.slice(-4).map((log, index) => (
+                <Text key={index} style={styles.debugText}>
+                  {log}
+                </Text>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
       
       <WebView
@@ -708,24 +719,29 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#000' 
   },
+  // 🔥 FIXED: Camera takes full screen properly
   camera: { 
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
-  uiOverlay: { 
     position: 'absolute',
     top: 0,
     left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10,
+    width: width,
+    height: height,
   },
+  // 🔥 FIXED: SVG overlay doesn't interfere with camera
+  svgOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: width,
+    height: height,
+    zIndex: 5,
+  },
+  // 🔥 FIXED: Scan frame positioned without blocking camera
   scanFrame: {
     position: 'absolute',
     top: height * 0.25,
     left: width * 0.1,
-    right: width * 0.1,
+    width: width * 0.8,
     height: width * 0.8,
     borderWidth: 2,
     borderColor: '#00ff00',
@@ -734,7 +750,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
+    zIndex: 3,
   },
+  // 🔥 FIXED: Results container properly positioned
   resultsContainer: {
     position: 'absolute',
     top: 50,
@@ -743,9 +761,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.9)',
     padding: 20,
     borderRadius: 15,
-    maxHeight: height * 0.4,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+    zIndex: 10,
   },
   resultText: { 
     color: 'white', 
@@ -772,30 +790,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginTop: 5,
   },
-  debugContainer: { 
-    marginTop: 8, 
-    maxHeight: 80,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    paddingTop: 8,
-  },
-  debugScrollView: { 
-    maxHeight: 70 
-  },
-  debugText: { 
-    color: '#ccc', 
-    fontSize: 8, 
-    marginTop: 1,
-    lineHeight: 12,
-  },
+  // 🔥 FIXED: Button container with proper touch handling
   buttonContainer: { 
     position: 'absolute', 
-    bottom: 100, 
+    bottom: 80, 
     left: 40, 
     right: 40,
     alignItems: 'center',
+    zIndex: 15,
   },
   button: { 
     paddingVertical: 18,
@@ -848,5 +852,32 @@ const styles = StyleSheet.create({
     width: 1,
     height: 1,
     opacity: 0,
+  },
+  // 🔥 FIXED: Debug container positioned properly
+  debugContainer: { 
+    marginTop: 15, 
+    maxHeight: 120,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    width: '100%',
+  },
+  debugHeader: {
+    color: '#ffcc00',
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    textAlign: 'center',
+  },
+  debugScrollView: { 
+    maxHeight: 80,
+  },
+  debugText: { 
+    color: '#ccc', 
+    fontSize: 8, 
+    marginTop: 1,
+    lineHeight: 12,
   },
 });
