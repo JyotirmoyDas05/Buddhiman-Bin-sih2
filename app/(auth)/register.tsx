@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 export default function RegisterScreen() {
   const [formData, setFormData] = useState({

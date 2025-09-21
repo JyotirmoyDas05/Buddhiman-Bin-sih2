@@ -1,24 +1,24 @@
-import { Camera, CameraView } from 'expo-camera';
-import { useEffect, useRef, useState } from 'react';
+import { Camera, CameraView } from "expo-camera";
+import { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
-import Svg, { Rect, Text as SvgText } from 'react-native-svg';
-import { WebView } from 'react-native-webview';
+  View,
+} from "react-native";
+import Svg, { Rect, Text as SvgText } from "react-native-svg";
+import { WebView } from "react-native-webview";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 export default function LiveScanner() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [lastPrediction, setLastPrediction] = useState<string>('');
+  const [lastPrediction, setLastPrediction] = useState<string>("");
   const [confidence, setConfidence] = useState<number>(0);
-  const [modelStatus, setModelStatus] = useState<string>('Loading...');
+  const [modelStatus, setModelStatus] = useState<string>("Loading...");
   const [webViewReady, setWebViewReady] = useState(false);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [boundingBoxes, setBoundingBoxes] = useState<any[]>([]);
@@ -27,22 +27,29 @@ export default function LiveScanner() {
   const scanningRef = useRef<NodeJS.Timeout | null>(null);
 
   interface BoundingBoxProps {
-    box: {
-      x?: number;
-      y?: number;
-      width?: number;
-      height?: number;
-    } | number[];
+    box:
+      | {
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+        }
+      | number[];
     label: string;
     confidence: number;
     color?: string;
   }
 
-  const BoundingBox: React.FC<BoundingBoxProps> = ({ box, label, confidence, color = '#ff0000' }) => {
-    const boxWidth = Array.isArray(box) ? (box[2] - box[0]) : (box.width || 0);
-    const boxHeight = Array.isArray(box) ? (box[3] - box[1]) : (box.height || 0);
-    const x = Array.isArray(box) ? box[0] : (box.x || 0);
-    const y = Array.isArray(box) ? box[1] : (box.y || 0);
+  const BoundingBox: React.FC<BoundingBoxProps> = ({
+    box,
+    label,
+    confidence,
+    color = "#ff0000",
+  }) => {
+    const boxWidth = Array.isArray(box) ? box[2] - box[0] : box.width || 0;
+    const boxHeight = Array.isArray(box) ? box[3] - box[1] : box.height || 0;
+    const x = Array.isArray(box) ? box[0] : box.x || 0;
+    const y = Array.isArray(box) ? box[1] : box.y || 0;
 
     return (
       <>
@@ -424,93 +431,104 @@ export default function LiveScanner() {
     (async () => {
       try {
         const { status } = await Camera.requestCameraPermissionsAsync();
-        setHasPermission(status === 'granted');
+        setHasPermission(status === "granted");
       } catch (error: any) {
-        console.error('Camera permission error:', error);
+        console.error("Camera permission error:", error);
         setHasPermission(false);
       }
     })();
   }, []);
 
-  const addDebugLog = (message: string, level: string = 'log') => {
+  const addDebugLog = (message: string, level: string = "log") => {
     try {
       const timestamp = new Date().toLocaleTimeString();
       const logEntry = `[${timestamp}] ${message}`;
-      setDebugLogs(prev => [...prev.slice(-20), logEntry]);
-      
-      if (level === 'error') {
-        console.error('[WebView]', message);
+      setDebugLogs((prev) => [...prev.slice(-20), logEntry]);
+
+      if (level === "error") {
+        console.error("[WebView]", message);
       } else {
-        console.log('[WebView]', message);
+        console.log("[WebView]", message);
       }
     } catch (error) {
-      console.error('Debug log error:', error);
+      console.error("Debug log error:", error);
     }
   };
 
   const handleWebViewMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      
+
       switch (data.type) {
-        case 'console_log':
-          addDebugLog(`${data.level.toUpperCase()}: ${data.message}`, data.level);
+        case "console_log":
+          addDebugLog(
+            `${data.level.toUpperCase()}: ${data.message}`,
+            data.level
+          );
           break;
-          
-        case 'debug_log':
+
+        case "debug_log":
           addDebugLog(data.message);
           break;
-          
-        case 'model_ready':
-          if (data.status === 'success') {
-            setModelStatus('Ready');
+
+        case "model_ready":
+          if (data.status === "success") {
+            setModelStatus("Ready");
             setWebViewReady(true);
-            addDebugLog('✅ Keras model loaded successfully');
-            addDebugLog(`📥 Inputs: [${data.inputNames?.join(', ') || 'unknown'}]`);
-            addDebugLog(`📤 Outputs: [${data.outputNames?.join(', ') || 'unknown'}]`);
-            
+            addDebugLog("✅ Keras model loaded successfully");
+            addDebugLog(
+              `📥 Inputs: [${data.inputNames?.join(", ") || "unknown"}]`
+            );
+            addDebugLog(
+              `📤 Outputs: [${data.outputNames?.join(", ") || "unknown"}]`
+            );
+
             setTimeout(() => {
               startScanning();
             }, 1000);
-            
           } else {
             setModelStatus(`Error: ${data.message}`);
-            addDebugLog(`❌ Keras model error: ${data.message}`, 'error');
+            addDebugLog(`❌ Keras model error: ${data.message}`, "error");
           }
           break;
-          
-        case 'inference_result':
+
+        case "inference_result":
           setLastPrediction(data.className || `Class: ${data.class}`);
           setConfidence(data.confidence);
-          addDebugLog(`🎯 ${data.className || 'Class ' + data.class}: ${(data.confidence * 100).toFixed(1)}%`);
-          
+          addDebugLog(
+            `🎯 ${data.className || "Class " + data.class}: ${(
+              data.confidence * 100
+            ).toFixed(1)}%`
+          );
+
           // 🎯 Update bounding boxes
-          if (data.boundingBox && data.confidence > 0.3) { // Only show if confidence > 30%
+          if (data.boundingBox && data.confidence > 0.3) {
+            // Only show if confidence > 30%
             setBoundingBoxes([data.boundingBox]);
           } else {
             setBoundingBoxes([]);
           }
           break;
-          
-        case 'inference_error':
-          addDebugLog(`❌ Inference failed: ${data.message}`, 'error');
+
+        case "inference_error":
+          addDebugLog(`❌ Inference failed: ${data.message}`, "error");
           setBoundingBoxes([]); // Clear boxes on error
           break;
       }
     } catch (error: any) {
-      addDebugLog(`❌ Message parsing error: ${error.message}`, 'error');
+      addDebugLog(`❌ Message parsing error: ${error.message}`, "error");
     }
   };
 
   const captureAndAnalyze = async () => {
     try {
       if (!cameraRef.current || !webViewReady) {
-        addDebugLog('⚠️ Camera or WebView not ready');
+        addDebugLog("⚠️ Camera or WebView not ready");
         return;
       }
 
-      addDebugLog('📸 Capturing photo...');
-      
+      addDebugLog("📸 Capturing photo...");
+
       // 🔇 SILENT CAPTURE - Remove shutter sound
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
@@ -523,49 +541,51 @@ export default function LiveScanner() {
 
       if (photo?.base64) {
         const imageDataUrl = `data:image/jpeg;base64,${photo.base64}`;
-        addDebugLog('📤 Sending image for Keras inference...');
-        
-        webViewRef.current?.postMessage(JSON.stringify({
-          type: 'run_inference',
-          imageDataUrl: imageDataUrl
-        }));
+        addDebugLog("📤 Sending image for Keras inference...");
+
+        webViewRef.current?.postMessage(
+          JSON.stringify({
+            type: "run_inference",
+            imageDataUrl: imageDataUrl,
+          })
+        );
       } else {
-        addDebugLog('❌ Failed to capture photo - no base64 data', 'error');
+        addDebugLog("❌ Failed to capture photo - no base64 data", "error");
       }
     } catch (error: any) {
-      addDebugLog(`❌ Capture error: ${error.message}`, 'error');
+      addDebugLog(`❌ Capture error: ${error.message}`, "error");
     }
   };
 
   const startScanning = () => {
     try {
       if (!webViewReady) {
-        addDebugLog('⚠️ Cannot start scanning - WebView not ready');
+        addDebugLog("⚠️ Cannot start scanning - WebView not ready");
         return;
       }
-      
-      addDebugLog('▶️ Starting automatic Keras scanning...');
+
+      addDebugLog("▶️ Starting automatic Keras scanning...");
       setIsScanning(true);
-      
+
       setTimeout(() => {
-        captureAndAnalyze().catch(e => {
-          addDebugLog(`❌ Initial capture error: ${e.message}`, 'error');
+        captureAndAnalyze().catch((e) => {
+          addDebugLog(`❌ Initial capture error: ${e.message}`, "error");
         });
       }, 500);
-      
+
       scanningRef.current = setInterval(() => {
-        captureAndAnalyze().catch(e => {
-          addDebugLog(`❌ Interval capture error: ${e.message}`, 'error');
+        captureAndAnalyze().catch((e) => {
+          addDebugLog(`❌ Interval capture error: ${e.message}`, "error");
         });
       }, 2500) as unknown as NodeJS.Timeout;
     } catch (error: any) {
-      addDebugLog(`❌ Start scanning error: ${error.message}`, 'error');
+      addDebugLog(`❌ Start scanning error: ${error.message}`, "error");
     }
   };
 
   const stopScanning = () => {
     try {
-      addDebugLog('⏹️ Stopping scanning...');
+      addDebugLog("⏹️ Stopping scanning...");
       setIsScanning(false);
       setBoundingBoxes([]); // Clear bounding boxes when stopped
       if (scanningRef.current) {
@@ -573,7 +593,7 @@ export default function LiveScanner() {
         scanningRef.current = null;
       }
     } catch (error: any) {
-      addDebugLog(`❌ Stop scanning error: ${error.message}`, 'error');
+      addDebugLog(`❌ Stop scanning error: ${error.message}`, "error");
     }
   };
 
@@ -584,7 +604,7 @@ export default function LiveScanner() {
           clearInterval(scanningRef.current as unknown as number);
         }
       } catch (error) {
-        console.error('Cleanup error:', error);
+        console.error("Cleanup error:", error);
       }
     };
   }, []);
@@ -592,7 +612,7 @@ export default function LiveScanner() {
   // Helper function to format detection status
   const getDetectionStatusText = () => {
     if (!lastPrediction || confidence === 0) {
-      return isScanning ? 'No detection' : 'No detection (paused)';
+      return isScanning ? "No detection" : "No detection (paused)";
     }
     return lastPrediction;
   };
@@ -604,11 +624,13 @@ export default function LiveScanner() {
       </View>
     );
   }
-  
+
   if (hasPermission === false) {
     return (
       <View style={styles.container}>
-        <Text style={styles.messageText}>Camera access denied. Please enable camera permissions.</Text>
+        <Text style={styles.messageText}>
+          Camera access denied. Please enable camera permissions.
+        </Text>
       </View>
     );
   }
@@ -616,12 +638,8 @@ export default function LiveScanner() {
   return (
     <View style={styles.container}>
       {/* 🔥 FIXED: Camera now takes full screen without interference */}
-      <CameraView 
-        ref={cameraRef} 
-        style={styles.camera} 
-        facing="back" 
-      />
-      
+      <CameraView ref={cameraRef} style={styles.camera} facing="back" />
+
       {/* 🎯 FIXED: Bounding Box Overlay with proper pointer events */}
       <Svg style={styles.svgOverlay} pointerEvents="none">
         {boundingBoxes.map((box, index) => (
@@ -634,19 +652,25 @@ export default function LiveScanner() {
           />
         ))}
       </Svg>
-      
+
       {/* 🔥 FIXED: Results container positioned absolutely without blocking camera */}
       <View style={styles.resultsContainer} pointerEvents="box-none">
-        <Text style={styles.resultText}>
-          {getDetectionStatusText()}
-        </Text>
+        <Text style={styles.resultText}>{getDetectionStatusText()}</Text>
         <Text style={styles.confidenceText}>
           Confidence: {(confidence * 100).toFixed(1)}%
         </Text>
-        <Text style={[styles.statusText, { 
-          color: webViewReady ? '#00ff00' : 
-                 modelStatus.includes('Error') ? '#ff3030' : '#ff9900' 
-        }]}>
+        <Text
+          style={[
+            styles.statusText,
+            {
+              color: webViewReady
+                ? "#00ff00"
+                : modelStatus.includes("Error")
+                ? "#ff3030"
+                : "#ff9900",
+            },
+          ]}
+        >
           Status: {modelStatus}
         </Text>
         {isScanning && (
@@ -663,27 +687,30 @@ export default function LiveScanner() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[
-            styles.button, 
+            styles.button,
             isScanning ? styles.buttonStop : styles.buttonStart,
-            !webViewReady && styles.buttonDisabled
+            !webViewReady && styles.buttonDisabled,
           ]}
           onPress={isScanning ? stopScanning : startScanning}
           disabled={!webViewReady}
           activeOpacity={0.8}
         >
           <Text style={styles.buttonText}>
-            {isScanning ? '⏹️ STOP' : '▶️ START'}
+            {isScanning ? "⏹️ STOP" : "▶️ START"}
           </Text>
           <Text style={styles.buttonSubText}>
-            {isScanning ? 'Stop live detection' : 'Start live detection'}
+            {isScanning ? "Stop live detection" : "Start live detection"}
           </Text>
         </TouchableOpacity>
-        
+
         {/* 🔥 FIXED: Debug container positioned properly */}
         {debugLogs.length > 0 && (
           <View style={styles.debugContainer}>
             <Text style={styles.debugHeader}>Debug Logs:</Text>
-            <ScrollView style={styles.debugScrollView} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.debugScrollView}
+              showsVerticalScrollIndicator={false}
+            >
               {debugLogs.slice(-4).map((log, index) => (
                 <Text key={index} style={styles.debugText}>
                   {log}
@@ -693,7 +720,7 @@ export default function LiveScanner() {
           </View>
         )}
       </View>
-      
+
       <WebView
         ref={webViewRef}
         source={{ html: htmlContent }}
@@ -705,23 +732,30 @@ export default function LiveScanner() {
         allowFileAccess={true}
         allowFileAccessFromFileURLs={true}
         mixedContentMode="compatibility"
-        onError={(error) => addDebugLog(`WebView Error: ${error.nativeEvent.description}`, 'error')}
-        onLoadStart={() => addDebugLog('WebView loading started')}
-        onLoadEnd={() => addDebugLog('WebView loading finished')}
-        onHttpError={(error) => addDebugLog(`HTTP Error: ${error.nativeEvent.statusCode}`, 'error')}
+        onError={(error) =>
+          addDebugLog(
+            `WebView Error: ${error.nativeEvent.description}`,
+            "error"
+          )
+        }
+        onLoadStart={() => addDebugLog("WebView loading started")}
+        onLoadEnd={() => addDebugLog("WebView loading finished")}
+        onHttpError={(error) =>
+          addDebugLog(`HTTP Error: ${error.nativeEvent.statusCode}`, "error")
+        }
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#000' 
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
   },
   // 🔥 FIXED: Camera takes full screen properly
-  camera: { 
-    position: 'absolute',
+  camera: {
+    position: "absolute",
     top: 0,
     left: 0,
     width: width,
@@ -729,7 +763,7 @@ const styles = StyleSheet.create({
   },
   // 🔥 FIXED: SVG overlay doesn't interfere with camera
   svgOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     width: width,
@@ -738,15 +772,15 @@ const styles = StyleSheet.create({
   },
   // 🔥 FIXED: Scan frame positioned without blocking camera
   scanFrame: {
-    position: 'absolute',
+    position: "absolute",
     top: height * 0.25,
     left: width * 0.1,
     width: width * 0.8,
     height: width * 0.8,
     borderWidth: 2,
-    borderColor: '#00ff00',
+    borderColor: "#00ff00",
     borderRadius: 15,
-    shadowColor: '#00ff00',
+    shadowColor: "#00ff00",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -754,99 +788,99 @@ const styles = StyleSheet.create({
   },
   // 🔥 FIXED: Results container properly positioned
   resultsContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
     left: 15,
     right: 15,
-    backgroundColor: 'rgba(0,0,0,0.9)',
+    backgroundColor: "rgba(0,0,0,0.9)",
     padding: 20,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: "rgba(255,255,255,0.1)",
     zIndex: 10,
   },
-  resultText: { 
-    color: 'white', 
-    fontSize: 20, 
-    fontWeight: 'bold',
-    textAlign: 'center',
+  resultText: {
+    color: "white",
+    fontSize: 20,
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 5,
   },
-  confidenceText: { 
-    color: '#00ff00', 
-    fontSize: 16, 
-    textAlign: 'center',
-    fontWeight: '600',
+  confidenceText: {
+    color: "#00ff00",
+    fontSize: 16,
+    textAlign: "center",
+    fontWeight: "600",
     marginBottom: 5,
   },
-  statusText: { 
-    fontSize: 12, 
-    textAlign: 'center',
-    fontWeight: 'bold',
+  statusText: {
+    fontSize: 12,
+    textAlign: "center",
+    fontWeight: "bold",
     marginBottom: 3,
   },
   scanningStatusText: {
-    color: '#ffcc00',
+    color: "#ffcc00",
     fontSize: 11,
-    textAlign: 'center',
-    fontWeight: 'bold',
+    textAlign: "center",
+    fontWeight: "bold",
     marginTop: 5,
   },
   // 🔥 FIXED: Button container with proper touch handling
-  buttonContainer: { 
-    position: 'absolute', 
-    bottom: 80, 
-    left: 40, 
+  buttonContainer: {
+    position: "absolute",
+    bottom: 110,
+    left: 40,
     right: 40,
-    alignItems: 'center',
+    alignItems: "center",
     zIndex: 15,
   },
-  button: { 
+  button: {
     paddingVertical: 18,
     paddingHorizontal: 40,
     borderRadius: 30,
-    alignItems: 'center',
+    alignItems: "center",
     minWidth: 160,
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.6,
     shadowRadius: 15,
     borderWidth: 2,
   },
   buttonStart: {
-    backgroundColor: '#00AA00',
-    borderColor: '#00ff00',
+    backgroundColor: "#00AA00",
+    borderColor: "#00ff00",
   },
-  buttonStop: { 
-    backgroundColor: '#FF3030',
-    borderColor: '#ff6060',
+  buttonStop: {
+    backgroundColor: "#FF3030",
+    borderColor: "#ff6060",
   },
   buttonDisabled: {
-    backgroundColor: '#666',
-    borderColor: '#888',
+    backgroundColor: "#666",
+    borderColor: "#888",
     opacity: 0.6,
   },
-  buttonText: { 
-    color: 'white', 
-    fontSize: 18, 
-    fontWeight: 'bold',
+  buttonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
   },
   buttonSubText: {
-    color: 'white',
+    color: "white",
     fontSize: 11,
     marginTop: 3,
     opacity: 0.9,
   },
-  messageText: { 
-    color: 'white', 
-    fontSize: 18, 
-    textAlign: 'center', 
+  messageText: {
+    color: "white",
+    fontSize: 18,
+    textAlign: "center",
     marginTop: 150,
     paddingHorizontal: 30,
   },
   hiddenWebView: {
-    position: 'absolute',
+    position: "absolute",
     top: -2000,
     left: -2000,
     width: 1,
@@ -854,29 +888,29 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   // 🔥 FIXED: Debug container positioned properly
-  debugContainer: { 
-    marginTop: 15, 
-    maxHeight: 120,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+  debugContainer: {
+    marginTop: 15,
+    maxHeight: 100,
+    backgroundColor: "rgba(0,0,0,0.8)",
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    width: '100%',
+    borderColor: "rgba(255,255,255,0.1)",
+    width: "100%",
   },
   debugHeader: {
-    color: '#ffcc00',
+    color: "#ffcc00",
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
-    textAlign: 'center',
+    textAlign: "center",
   },
-  debugScrollView: { 
+  debugScrollView: {
     maxHeight: 80,
   },
-  debugText: { 
-    color: '#ccc', 
-    fontSize: 8, 
+  debugText: {
+    color: "#ccc",
+    fontSize: 8,
     marginTop: 1,
     lineHeight: 12,
   },
