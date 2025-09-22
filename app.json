@@ -22,43 +22,52 @@
       ],
       "package": "com.anonymous.AmarteamName"
     },
-   "plugins": [
-  "expo-dev-client",
-  [
-    "react-native-fast-tflite",
-    {
-      "enableCoreMLDelegate": true,
-      "enableAndroidGpuLibraries": true
-    }
-  ],
-  "expo-router",
-  [
-    "expo-build-properties",
-    {
-      "android": {
-        "compileSdkVersion": 35,
-        "targetSdkVersion": 35,
-        "minSdkVersion": 24,
-        "buildToolsVersion": "34.0.0"
-      }
-    }
-  ],
-  [
-    "expo-camera",
-    {
-      "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
-    }
-  ],
-  "expo-asset"
-],
+    "plugins": [
+      "expo-dev-client",
+      [
+        "react-native-fast-tflite",
+        {
+          "enableCoreMLDelegate": true,
+          "enableAndroidGpuLibraries": true
+        }
+      ],
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24,
+            "buildToolsVersion": "34.0.0"
+          }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
+        }
+      ],
+      "expo-asset"
+    ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "dbf32530-18ec-44bb-8c62-f645f3e956b9"
+      // NOTE TO Bhairabh: I've temporarily replaced the projectId in the "eas" object below with my own to run the dev build on my end.
+      // This allows me to test and develop without interfering with your setup.
+      // To revert it back to your original projectId:
+      // 1. Go to your EAS dashboard (https://expo.dev/accounts/[your-account]/projects) and find the original projectId for this app.
+      // 2. Replace the current projectId value in this "eas" object with your original one.
+      // 3. Save the file, commit the change, and push to your repo.
+      // 4. Run 'eas build' or 'expo build' to ensure it uses your projectId again.
+      // If you need help or have the original ID handy (will find it in your git history of this file only), or else let me know!
+      "eas": {                                                     
+        "projectId": "3b062255-6429-44a3-9f23-8d1d532f82d6"
       }
-    }
+    },
+    "owner": "jyotirmoydas05" /* Delete This Line as it was before when you test yourself using dev build*/
   }
 }
