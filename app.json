@@ -1,26 +1,40 @@
 {
   "expo": {
-    "name": "amarteamname",
-    "main": "expo-router/entry",
+    "name": "EcoMitra",
+    "slug": "ecomitra",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "amarteamname",
+    "icon": "./assets/images/adaptive_icon.png",
+    "scheme": "ecomitra",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "jsEngine": "hermes",
     "assetBundlePatterns": [
       "**/*"
     ],
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/adaptive_icon.png"
       },
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anonymous.AmarteamName"
+      "package": "com.anonymous.EcoMitra"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartsorter.EcoMitra",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to scan QR codes.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone to record audio."
+      },
+      "icon": {
+        "light": "./assets/images/ios_light.png",
+        "dark": "./assets/images/ios_dark.png",
+        "tinted": "./assets/images/ios_tinted.png"
+      }
     },
     "plugins": [
       "expo-dev-client",
@@ -33,13 +47,29 @@
       ],
       "expo-router",
       [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/images/splash_icon_dark.png",
+          "resizeMode": "contain",
+          "dark": {
+            "image": "./assets/images/splash_icon_light.png",
+            "backgroundColor": "#000000"
+          },
+          "imageWidth": 200,
+          "hideAsync": true
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
             "minSdkVersion": 24,
-            "buildToolsVersion": "34.0.0"
+            "buildToolsVersion": "34.0.0",
+            "enableProguardInReleaseBuilds": false,
+            "enableSeparateBuildPerCPUArchitecture": true
           }
         }
       ],
@@ -49,14 +79,22 @@
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-custom-assets",
+        {
+          "assetsPaths": [
+            "./assets/models",
+            "./assets/images"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      // NOTE TO Bhairabh: I've temporarily replaced the projectId in the "eas" object below with my own to run the dev build on my end.
+      "router": {},      // NOTE TO Bhairabh: I've temporarily replaced the projectId in the "eas" object below with my own to run the dev build on my end.
       // This allows me to test and develop without interfering with your setup.
       // To revert it back to your original projectId:
       // 1. Go to your EAS dashboard (https://expo.dev/accounts/[your-account]/projects) and find the original projectId for this app.
@@ -64,10 +102,10 @@
       // 3. Save the file, commit the change, and push to your repo.
       // 4. Run 'eas build' or 'expo build' to ensure it uses your projectId again.
       // If you need help or have the original ID handy (will find it in your git history of this file only), or else let me know!
-      "eas": {                                                     
-        "projectId": "3b062255-6429-44a3-9f23-8d1d532f82d6"
+      "eas": {
+        "projectId": "5c881af7-b5b9-491d-8e10-665b236c18cd"
       }
     },
-    "owner": "jyotirmoydas05" /* Delete This Line as it was before when you test yourself using dev build*/
+    "owner": "jyotirmoydas05"
   }
 }

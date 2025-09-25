@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -10,55 +10,60 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { Colors } from '../../constants/Colors';
-import { useAuth } from '../../contexts/AuthContext';
+} from "react-native";
+import { Colors } from "../../constants/Colors";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function LoginScreen() {
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const { login, sendOTP, loading } = useAuth();
 
-const handleSendOTP = async () => {
-  if (!phone.trim() || phone.length < 10) {
-    Alert.alert('Error', 'Please enter a valid 10-digit phone number');
-    return;
-  }
+  const handleSendOTP = async () => {
+    if (!phone.trim() || phone.length < 10) {
+      Alert.alert("Error", "Please enter a valid 10-digit phone number");
+      return;
+    }
 
-  const success = await sendOTP(phone);
-  if (success) {
-    setOtpSent(true);
-    Alert.alert('Success', 'OTP sent to your phone. Please check your messages.'); // Updated
-  } else {
-    Alert.alert('Error', 'Failed to send OTP. Please check your network connection and try again.'); // More helpful
-  }
-};
-
+    const success = await sendOTP(phone);
+    if (success) {
+      setOtpSent(true);
+      Alert.alert(
+        "Success",
+        "OTP sent to your phone. Please check your messages."
+      ); // Updated
+    } else {
+      Alert.alert(
+        "Error",
+        "Failed to send OTP. Please check your network connection and try again."
+      ); // More helpful
+    }
+  };
 
   const handleLogin = async () => {
     if (!otp.trim() || otp.length < 6) {
-      Alert.alert('Error', 'Please enter the 6-digit OTP');
+      Alert.alert("Error", "Please enter the 6-digit OTP");
       return;
     }
 
     const success = await login(phone, otp);
     if (success) {
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     } else {
-      Alert.alert('Error', 'Invalid OTP. Please try again.');
+      Alert.alert("Error", "Invalid OTP. Please try again.");
     }
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Welcome to</Text>
-          <Text style={styles.appName}>IdkSomeAppName</Text>
+          <Text style={styles.appName}>EcoMitra</Text>
           <Text style={styles.subtitle}>Smart Waste Segregation System</Text>
         </View>
 
@@ -81,7 +86,7 @@ const handleSendOTP = async () => {
               disabled={loading}
             >
               <Text style={styles.buttonText}>
-                {loading ? 'Sending...' : 'Send OTP'}
+                {loading ? "Sending..." : "Send OTP"}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -95,14 +100,14 @@ const handleSendOTP = async () => {
                 keyboardType="number-pad"
                 maxLength={6}
               />
-              
+
               <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={handleLogin}
                 disabled={loading}
               >
                 <Text style={styles.buttonText}>
-                  {loading ? 'Verifying...' : 'Verify & Login'}
+                  {loading ? "Verifying..." : "Verify & Login"}
                 </Text>
               </TouchableOpacity>
 
@@ -117,10 +122,11 @@ const handleSendOTP = async () => {
 
           <TouchableOpacity
             style={styles.registerLink}
-            onPress={() => router.push('/(auth)/register' as any)}
+            onPress={() => router.push("/(auth)/register" as any)}
           >
             <Text style={styles.registerText}>
-              New user? <Text style={styles.registerTextBold}>Register Here</Text>
+              New user?{" "}
+              <Text style={styles.registerTextBold}>Register Here</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -136,11 +142,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
   },
   title: {
@@ -150,21 +156,21 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 36,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: Colors.primary,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     color: Colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   form: {
-    width: '100%',
+    width: "100%",
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text,
     marginBottom: 8,
   },
@@ -181,19 +187,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 16,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   resendButton: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   resendText: {
@@ -201,7 +207,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   registerLink: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 20,
   },
   registerText: {
@@ -210,6 +216,6 @@ const styles = StyleSheet.create({
   },
   registerTextBold: {
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

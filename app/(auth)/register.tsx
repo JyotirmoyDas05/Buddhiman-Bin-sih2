@@ -1,6 +1,6 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -13,18 +13,18 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useAuth } from '../../contexts/AuthContext';
+} from "react-native";
+import { useAuth } from "../../contexts/AuthContext";
 
-const { height } = Dimensions.get('window');
+const { height } = Dimensions.get("window");
 
 export default function RegisterScreen() {
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    address: '',
-    householdMembers: '',
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    householdMembers: "",
   });
 
   const { register, loading } = useAuth();
@@ -32,19 +32,28 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     // Validation
     if (!formData.name.trim()) {
-      Alert.alert('Missing Information', 'Please enter your full name');
+      Alert.alert("Missing Information", "Please enter your full name");
       return;
     }
     if (!formData.phone.trim() || formData.phone.length !== 10) {
-      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number');
+      Alert.alert(
+        "Invalid Phone",
+        "Please enter a valid 10-digit phone number"
+      );
       return;
     }
     if (!formData.address.trim()) {
-      Alert.alert('Missing Address', 'Please enter your complete address');
+      Alert.alert("Missing Address", "Please enter your complete address");
       return;
     }
-    if (!formData.householdMembers.trim() || parseInt(formData.householdMembers) < 1) {
-      Alert.alert('Invalid Input', 'Please enter number of household members (minimum 1)');
+    if (
+      !formData.householdMembers.trim() ||
+      parseInt(formData.householdMembers) < 1
+    ) {
+      Alert.alert(
+        "Invalid Input",
+        "Please enter number of household members (minimum 1)"
+      );
       return;
     }
 
@@ -57,15 +66,21 @@ export default function RegisterScreen() {
     };
 
     const success = await register(registerData);
-    
+
     if (success) {
       router.push({
-        pathname: '/(auth)/otp',
-        params: { phone: formData.phone }
+        pathname: "/(auth)/otp",
+        params: { phone: formData.phone },
       });
-      Alert.alert('Success', 'OTP sent to your phone. Please verify to complete registration.');
+      Alert.alert(
+        "Success",
+        "OTP sent to your phone. Please verify to complete registration."
+      );
     } else {
-      Alert.alert('Registration Failed', 'Unable to send OTP. Please try again.');
+      Alert.alert(
+        "Registration Failed",
+        "Unable to send OTP. Please try again."
+      );
     }
   };
 
@@ -73,14 +88,14 @@ export default function RegisterScreen() {
     <>
       <StatusBar barStyle="light-content" backgroundColor="#22C55E" />
       <LinearGradient
-        colors={['#22C55E', '#16A34A', '#15803D']}
+        colors={["#22C55E", "#16A34A", "#15803D"]}
         style={styles.container}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           style={styles.container}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          <ScrollView 
+          <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
@@ -90,19 +105,22 @@ export default function RegisterScreen() {
               <View style={styles.logoContainer}>
                 <Text style={styles.logoIcon}>🌱</Text>
               </View>
-              <Text style={styles.title}>Join Green_Bots</Text>
-              <Text style={styles.subtitle}>Create your eco-friendly account</Text>
+              <Text style={styles.title}>Join EcoMitra</Text>
+              <Text style={styles.subtitle}>
+                Create your eco-friendly account
+              </Text>
             </View>
 
             {/* Main Form Card */}
             <View style={styles.formContainer}>
               {/* Login Link */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.loginLink}
-                onPress={() => router.push('/(auth)/login' as any)}
+                onPress={() => router.push("/(auth)/login" as any)}
               >
                 <Text style={styles.loginText}>
-                  Already have an account? <Text style={styles.loginBold}>Sign In</Text>
+                  Already have an account?{" "}
+                  <Text style={styles.loginBold}>Sign In</Text>
                 </Text>
               </TouchableOpacity>
 
@@ -117,11 +135,13 @@ export default function RegisterScreen() {
                       placeholder="Your name"
                       placeholderTextColor="#9CA3AF"
                       value={formData.name}
-                      onChangeText={(text) => setFormData(prev => ({...prev, name: text}))}
+                      onChangeText={(text) =>
+                        setFormData((prev) => ({ ...prev, name: text }))
+                      }
                       autoCapitalize="words"
                     />
                   </View>
-                  
+
                   <View style={[styles.inputContainer, styles.halfWidth]}>
                     <Text style={styles.label}>Phone</Text>
                     <View style={styles.phoneContainer}>
@@ -131,7 +151,9 @@ export default function RegisterScreen() {
                         placeholder="10-digit number"
                         placeholderTextColor="#9CA3AF"
                         value={formData.phone}
-                        onChangeText={(text) => setFormData(prev => ({...prev, phone: text}))}
+                        onChangeText={(text) =>
+                          setFormData((prev) => ({ ...prev, phone: text }))
+                        }
                         keyboardType="phone-pad"
                         maxLength={10}
                       />
@@ -149,7 +171,9 @@ export default function RegisterScreen() {
                     placeholder="your@email.com"
                     placeholderTextColor="#9CA3AF"
                     value={formData.email}
-                    onChangeText={(text) => setFormData(prev => ({...prev, email: text}))}
+                    onChangeText={(text) =>
+                      setFormData((prev) => ({ ...prev, email: text }))
+                    }
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
@@ -164,11 +188,13 @@ export default function RegisterScreen() {
                       placeholder="Your complete address"
                       placeholderTextColor="#9CA3AF"
                       value={formData.address}
-                      onChangeText={(text) => setFormData(prev => ({...prev, address: text}))}
+                      onChangeText={(text) =>
+                        setFormData((prev) => ({ ...prev, address: text }))
+                      }
                       multiline={false}
                     />
                   </View>
-                  
+
                   <View style={[styles.inputContainer, { flex: 1 }]}>
                     <Text style={styles.label}>Members</Text>
                     <TextInput
@@ -176,7 +202,12 @@ export default function RegisterScreen() {
                       placeholder="4"
                       placeholderTextColor="#9CA3AF"
                       value={formData.householdMembers}
-                      onChangeText={(text) => setFormData(prev => ({...prev, householdMembers: text}))}
+                      onChangeText={(text) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          householdMembers: text,
+                        }))
+                      }
                       keyboardType="number-pad"
                       maxLength={2}
                     />
@@ -192,11 +223,13 @@ export default function RegisterScreen() {
                 activeOpacity={0.9}
               >
                 <LinearGradient
-                  colors={loading ? ['#9CA3AF', '#6B7280'] : ['#22C55E', '#16A34A']}
+                  colors={
+                    loading ? ["#9CA3AF", "#6B7280"] : ["#22C55E", "#16A34A"]
+                  }
                   style={styles.buttonGradient}
                 >
                   <Text style={styles.buttonText}>
-                    {loading ? 'Creating Account...' : 'Create Account'}
+                    {loading ? "Creating Account..." : "Create Account"}
                   </Text>
                   <Text style={styles.buttonIcon}>✨</Text>
                 </LinearGradient>
@@ -204,8 +237,9 @@ export default function RegisterScreen() {
 
               {/* Terms */}
               <Text style={styles.terms}>
-                By creating an account, you agree to our{'\n'}
-                <Text style={styles.termsLink}>Terms of Service</Text> and <Text style={styles.termsLink}>Privacy Policy</Text>
+                By creating an account, you agree to our{"\n"}
+                <Text style={styles.termsLink}>Terms of Service</Text> and{" "}
+                <Text style={styles.termsLink}>Privacy Policy</Text>
               </Text>
             </View>
           </ScrollView>
@@ -226,16 +260,16 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 30,
   },
   logoContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 16,
   },
   logoIcon: {
@@ -243,46 +277,46 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
-    color: 'white',
+    fontWeight: "800",
+    color: "white",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '500',
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
   },
   formContainer: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 24,
     padding: 24,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 15,
   },
   loginLink: {
-    alignSelf: 'center',
+    alignSelf: "center",
     marginBottom: 24,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderRadius: 20,
   },
   loginText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   loginBold: {
-    fontWeight: '700',
-    color: '#22C55E',
+    fontWeight: "700",
+    color: "#22C55E",
   },
   fieldsContainer: {
     marginBottom: 24,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   inputContainer: {
@@ -293,61 +327,61 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: "600",
+    color: "#374151",
     marginBottom: 8,
   },
   optional: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#22C55E',
+    fontWeight: "500",
+    color: "#22C55E",
   },
   input: {
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1F2937',
-    backgroundColor: '#FAFAFA',
-    fontWeight: '500',
+    color: "#1F2937",
+    backgroundColor: "#FAFAFA",
+    fontWeight: "500",
   },
   phoneContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     borderRadius: 12,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
     paddingHorizontal: 16,
   },
   countryCode: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#22C55E',
+    fontWeight: "600",
+    color: "#22C55E",
     marginRight: 8,
   },
   phoneInput: {
     flex: 1,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1F2937',
-    fontWeight: '500',
+    color: "#1F2937",
+    fontWeight: "500",
   },
   createButton: {
     borderRadius: 16,
     marginBottom: 16,
-    shadowColor: '#22C55E',
+    shadowColor: "#22C55E",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
   buttonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 16,
@@ -357,21 +391,21 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: 'white',
+    color: "white",
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   buttonIcon: {
     fontSize: 16,
   },
   terms: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 12,
-    color: '#6B7280',
+    color: "#6B7280",
     lineHeight: 18,
   },
   termsLink: {
-    fontWeight: '600',
-    color: '#22C55E',
+    fontWeight: "600",
+    color: "#22C55E",
   },
 });
